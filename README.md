@@ -2,9 +2,9 @@
 
 ## Player
 
-`Player` is a simple iOS video player library written in [Swift](https://developer.apple.com/swift/).
+`Player` is a simple iOS/tvOS video player library written in [Swift](https://developer.apple.com/swift/).
 
-[![Build Status](https://travis-ci.com/piemonte/Player.svg?branch=master)](https://travis-ci.com/piemonte/Player) [![Pod Version](https://img.shields.io/cocoapods/v/Player.svg?style=flat)](http://cocoadocs.org/docsets/Player/) [![Swift Version](https://img.shields.io/badge/language-swift%205.0-brightgreen.svg)](https://developer.apple.com/swift) [![GitHub license](https://img.shields.io/badge/license-MIT-lightgrey.svg)](https://github.com/piemonte/Player/blob/master/LICENSE)
+[![Build Status](https://travis-ci.com/piemonte/Player.svg?branch=master)](https://travis-ci.com/piemonte/Player) [![Pod Version](https://img.shields.io/cocoapods/v/Player.svg?style=flat)](http://cocoadocs.org/docsets/Player/) [![Swift Version](https://img.shields.io/badge/language-swift%205.0-brightgreen.svg)](https://developer.apple.com/swift) [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20tvOS-lightgrey.svg)](https://github.com/piemonte/Player) [![SPM Compatible](https://img.shields.io/badge/Swift%20Package%20Manager-compatible-brightgreen.svg)](https://github.com/apple/swift-package-manager) [![GitHub license](https://img.shields.io/badge/license-MIT-lightgrey.svg)](https://github.com/piemonte/Player/blob/master/LICENSE)
 
 - Looking for an obj-c video player? Check out [PBJVideoPlayer (obj-c)](https://github.com/piemonte/PBJVideoPlayer).
 - Looking for a Swift camera library? Check out [Next Level](https://github.com/NextLevel/NextLevel).
@@ -25,13 +25,29 @@ Need a different version of Swift?
 
 # Quick Start
 
-`Player` is available for installation using the Cocoa dependency manager [CocoaPods](http://cocoapods.org/).  Alternatively, you can simply copy the `Player.swift` file into your Xcode project.
+`Player` is available for installation using CocoaPods, Swift Package Manager, Carthage, or by manually copying the `Player.swift` file into your Xcode project.
+
+## Swift Package Manager
+
+Add Player to your `Package.swift` dependencies:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/piemonte/Player.git", from: "0.13.2")
+]
+```
+
+Or add it directly in Xcode via **File > Add Package Dependencies** and enter the repository URL.
+
+## CocoaPods
 
 ```ruby
-# CocoaPods
 pod "Player", "~> 0.13.2"
+```
 
-# Carthage
+## Carthage
+
+```ruby
 github "piemonte/Player" ~> 0.13.2
 ```
 
@@ -57,6 +73,22 @@ Provide the file path to the resource you would like to play locally or stream. 
 ``` Swift
 let videoUrl: URL = // file or http url
 self.player.url = videoUrl
+```
+
+For HTTP streams with custom headers, use AVAsset:
+
+``` Swift
+let videoUrl: URL = // http url
+let headers = ["Authorization": "Bearer token123"]
+let asset = AVURLAsset(url: videoUrl, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
+self.player.asset = asset
+```
+
+For iCloud Photos or PHAsset videos, use AVPlayerItem:
+
+``` Swift
+let playerItem: AVPlayerItem = // your player item
+self.player.playerItem = playerItem
 ```
 
 play/pause
