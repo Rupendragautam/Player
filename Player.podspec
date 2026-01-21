@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name = 'Player'
-  s.version = '0.14.0'
+  s.version = '0.15.0'
   s.license = 'MIT'
   s.summary = 'video player in Swift, simple way to play and stream media in your iOS or tvOS app'
   s.homepage = 'https://github.com/piemonte/player'
@@ -8,9 +8,9 @@ Pod::Spec.new do |s|
   s.authors = { 'patrick piemonte' => "patrick.piemonte@gmail.com" }
   s.source = { :git => 'https://github.com/piemonte/player.git', :tag => s.version }
   s.documentation_url = 'https://piemonte.github.io/Player/'
-  s.ios.deployment_target = '12.0'
-  s.tvos.deployment_target = '12.0'
+  s.ios.deployment_target = '16.0'
+  s.tvos.deployment_target = '16.0'
   s.source_files = 'Sources/*.swift'
   s.requires_arc = true
-  s.swift_version = '5.0'
+  s.swift_version = '5.9'
 end

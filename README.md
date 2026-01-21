@@ -33,7 +33,7 @@ Add Player to your `Package.swift` dependencies:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/piemonte/Player.git", from: "0.13.2")
+    .package(url: "https://github.com/piemonte/Player.git", from: "0.15.0")
 ]
 ```
 
@@ -42,7 +42,7 @@ Or add it directly in Xcode via **File > Add Package Dependencies** and enter th
 ## CocoaPods
 
 ```ruby
-pod "Player", "~> 0.13.2"
+pod "Player", "~> 0.15.0"
 ```
 
 ## Manual Installation
