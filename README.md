@@ -4,7 +4,7 @@
 
 `Player` is a simple iOS/tvOS video player library written in [Swift](https://developer.apple.com/swift/).
 
-[![Build Status](https://travis-ci.com/piemonte/Player.svg?branch=master)](https://travis-ci.com/piemonte/Player) [![Pod Version](https://img.shields.io/cocoapods/v/Player.svg?style=flat)](http://cocoadocs.org/docsets/Player/) [![Swift Version](https://img.shields.io/badge/language-swift%205.0-brightgreen.svg)](https://developer.apple.com/swift) [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20tvOS-lightgrey.svg)](https://github.com/piemonte/Player) [![SPM Compatible](https://img.shields.io/badge/Swift%20Package%20Manager-compatible-brightgreen.svg)](https://github.com/apple/swift-package-manager) [![GitHub license](https://img.shields.io/badge/license-MIT-lightgrey.svg)](https://github.com/piemonte/Player/blob/master/LICENSE)
+[![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20tvOS-lightgrey.svg)](https://github.com/piemonte/Player) [![Swift Version](https://img.shields.io/badge/swift-5.0%2B-orange.svg)](https://developer.apple.com/swift) [![SPM Compatible](https://img.shields.io/badge/Swift%20Package%20Manager-compatible-brightgreen.svg)](https://github.com/apple/swift-package-manager) [![Pod Version](https://img.shields.io/cocoapods/v/Player.svg?style=flat)](http://cocoadocs.org/docsets/Player/) [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](https://github.com/piemonte/Player/blob/master/LICENSE)
 
 - Looking for an obj-c video player? Check out [PBJVideoPlayer (obj-c)](https://github.com/piemonte/PBJVideoPlayer).
 - Looking for a Swift camera library? Check out [Next Level](https://github.com/NextLevel/NextLevel).
@@ -25,7 +25,7 @@ Need a different version of Swift?
 
 # Quick Start
 
-`Player` is available for installation using CocoaPods, Swift Package Manager, Carthage, or by manually copying the `Player.swift` file into your Xcode project.
+`Player` is available for installation using Swift Package Manager, CocoaPods, or by manually copying the `Player.swift` file into your Xcode project.
 
 ## Swift Package Manager
 
@@ -45,11 +45,9 @@ Or add it directly in Xcode via **File > Add Package Dependencies** and enter th
 pod "Player", "~> 0.13.2"
 ```
 
-## Carthage
+## Manual Installation
 
-```ruby
-github "piemonte/Player" ~> 0.13.2
-```
+Simply copy the `Player.swift` file from the `Sources` directory into your Xcode project.
 
 ## Usage
 
