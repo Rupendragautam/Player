@@ -40,11 +40,9 @@ public enum PlayerError: Error, CustomStringConvertible {
     case failed
 
     public var description: String {
-        get {
-            switch self {
-            case .failed:
-                return "failed"
-            }
+        switch self {
+        case .failed:
+            return "failed"
         }
     }
 }
@@ -64,6 +62,14 @@ public protocol PlayerDelegate: AnyObject {
     func player(_ player: Player, didFailWithError error: Error?)
 }
 
+/// Default implementations to make all delegate methods optional
+public extension PlayerDelegate {
+    func playerReady(_ player: Player) {}
+    func playerPlaybackStateDidChange(_ player: Player) {}
+    func playerBufferingStateDidChange(_ player: Player) {}
+    func playerBufferTimeDidChange(_ bufferTime: Double) {}
+    func player(_ player: Player, didFailWithError error: Error?) {}
+}
 
 /// Player playback protocol
 public protocol PlayerPlaybackDelegate: AnyObject {
@@ -72,6 +78,15 @@ public protocol PlayerPlaybackDelegate: AnyObject {
     func playerPlaybackDidEnd(_ player: Player)
     func playerPlaybackWillLoop(_ player: Player)
     func playerPlaybackDidLoop(_ player: Player)
+}
+
+/// Default implementations to make all delegate methods optional
+public extension PlayerPlaybackDelegate {
+    func playerCurrentTimeDidChange(_ player: Player) {}
+    func playerPlaybackWillStartFromBeginning(_ player: Player) {}
+    func playerPlaybackDidEnd(_ player: Player) {}
+    func playerPlaybackWillLoop(_ player: Player) {}
+    func playerPlaybackDidLoop(_ player: Player) {}
 }
 
 // MARK: - Player
@@ -96,17 +111,15 @@ open class Player: UIViewController {
         case failed
 
         public var description: String {
-            get {
-                switch self {
-                case .stopped:
-                    return "Stopped"
-                case .playing:
-                    return "Playing"
-                case .failed:
-                    return "Failed"
-                case .paused:
-                    return "Paused"
-                }
+            switch self {
+            case .stopped:
+                return "Stopped"
+            case .playing:
+                return "Playing"
+            case .failed:
+                return "Failed"
+            case .paused:
+                return "Paused"
             }
         }
     }
@@ -118,15 +131,13 @@ open class Player: UIViewController {
         case delayed
 
         public var description: String {
-            get {
-                switch self {
-                case .unknown:
-                    return "Unknown"
-                case .ready:
-                    return "Ready"
-                case .delayed:
-                    return "Delayed"
-                }
+            switch self {
+            case .unknown:
+                return "Unknown"
+            case .ready:
+                return "Ready"
+            case .delayed:
+                return "Delayed"
             }
         }
     }
@@ -159,15 +170,24 @@ open class Player: UIViewController {
         set { _ = newValue.map { setupAsset($0) } }
     }
 
-    /// Specifies how the video is displayed within a player layer’s bounds.
+    /// For setting up with AVPlayerItem directly (useful for iCloud Photos and PHAsset)
+    /// Note: This will reset the `url` and `asset` properties. (cannot set multiple)
+    open var playerItem: AVPlayerItem? {
+        get { return _playerItem }
+        set {
+            if let item = newValue {
+                self.url = nil
+                self._asset = nil
+                self.setupPlayerItem(item)
+            }
+        }
+    }
+
+    /// Specifies how the video is displayed within a player layer's bounds.
     /// The default value is `AVLayerVideoGravityResizeAspect`. See `PlayerFillMode`.
     open var fillMode: Player.FillMode {
-        get {
-            return self._playerView.playerFillMode
-        }
-        set {
-            self._playerView.playerFillMode = newValue
-        }
+        get { self._playerView.playerFillMode }
+        set { self._playerView.playerFillMode = newValue }
     }
 
     /// Determines if the video should autoplay when streaming a URL.
@@ -175,22 +195,14 @@ open class Player: UIViewController {
 
     /// Mutes audio playback when true.
     open var muted: Bool {
-        get {
-            return self._avplayer.isMuted
-        }
-        set {
-            self._avplayer.isMuted = newValue
-        }
+        get { self._avplayer.isMuted }
+        set { self._avplayer.isMuted = newValue }
     }
 
     /// Volume for the player, ranging from 0.0 to 1.0 on a linear scale.
     open var volume: Float {
-        get {
-            return self._avplayer.volume
-        }
-        set {
-            self._avplayer.volume = newValue
-        }
+        get { self._avplayer.volume }
+        set { self._avplayer.volume = newValue }
     }
     
     /// Rate at which the video should play once it loads
@@ -321,9 +333,7 @@ open class Player: UIViewController {
 
     /// self.view as PlayerView type
     public var playerView: PlayerView {
-        get {
-            return self._playerView
-        }
+        self._playerView
     }
 
     /// Return the av player layer for consumption by things such as Picture in Picture
@@ -447,15 +457,13 @@ extension Player {
 
     /// Total time spent playing.
     public var totalDurationWatched: TimeInterval {
-        get {
-            var totalDurationWatched = 0.0
-            if let accessLog = self._playerItem?.accessLog(), accessLog.events.isEmpty == false {
-                for event in accessLog.events where event.durationWatched > 0 {
-                    totalDurationWatched += event.durationWatched
-                }
+        var totalDurationWatched = 0.0
+        if let accessLog = self._playerItem?.accessLog(), accessLog.events.isEmpty == false {
+            for event in accessLog.events where event.durationWatched > 0 {
+                totalDurationWatched += event.durationWatched
             }
-            return totalDurationWatched
         }
+        return totalDurationWatched
     }
 
     /// Time weighted value of the variant indicated bitrate. Measure of overall stream quality.
@@ -494,14 +502,14 @@ extension Player {
 extension Player {
 
     /// Begins playback of the media from the beginning.
-    open func playFromBeginning() {
+    public func playFromBeginning() {
         self.playbackDelegate?.playerPlaybackWillStartFromBeginning(self)
         self._avplayer.seek(to: CMTime.zero)
         self.playFromCurrentTime()
     }
 
     /// Begins playback of the media from the current time.
-    open func playFromCurrentTime() {
+    public func playFromCurrentTime() {
         if !self.autoplay {
             // External call to this method with autoplay disabled. Re-activate it before calling play.
             self._hasAutoplayActivated = true
@@ -517,7 +525,7 @@ extension Player {
     }
 
     /// Pauses playback of the media.
-    open func pause() {
+    public func pause() {
         if self.playbackState != .playing {
             return
         }
@@ -527,7 +535,7 @@ extension Player {
     }
 
     /// Stops playback of the media.
-    open func stop() {
+    public func stop() {
         if self.playbackState == .stopped {
             return
         }
@@ -542,7 +550,7 @@ extension Player {
     /// - Parameters:
     ///   - time: The time to switch to move the playback.
     ///   - completionHandler: Call block handler after seeking/
-    open func seek(to time: CMTime, completionHandler: ((Bool) -> Swift.Void)? = nil) {
+    public func seek(to time: CMTime, completionHandler: ((Bool) -> Swift.Void)? = nil) {
         if let playerItem = self._playerItem {
             return playerItem.seek(to: time, completionHandler: completionHandler)
         } else {
@@ -557,7 +565,7 @@ extension Player {
     ///   - toleranceBefore: The tolerance allowed before time.
     ///   - toleranceAfter: The tolerance allowed after time.
     ///   - completionHandler: call block handler after seeking
-    open func seekToTime(to time: CMTime, toleranceBefore: CMTime, toleranceAfter: CMTime, completionHandler: ((Bool) -> Swift.Void)? = nil) {
+    public func seekToTime(to time: CMTime, toleranceBefore: CMTime, toleranceAfter: CMTime, completionHandler: ((Bool) -> Swift.Void)? = nil) {
         if let playerItem = self._playerItem {
             return playerItem.seek(to: time, toleranceBefore: toleranceBefore, toleranceAfter: toleranceAfter, completionHandler: completionHandler)
         }
@@ -566,7 +574,7 @@ extension Player {
     /// Captures a snapshot of the current Player asset.
     ///
     /// - Parameter completionHandler: Returns a UIImage of the requested video frame. (Great for thumbnails!)
-    open func takeSnapshot(completionHandler: ((_ image: UIImage?, _ error: Error?) -> Void)? ) {
+    public func takeSnapshot(completionHandler: ((_ image: UIImage?, _ error: Error?) -> Void)? ) {
         guard let asset = self._playerItem?.asset else {
             DispatchQueue.main.async {
                 completionHandler?(nil, nil)
@@ -705,7 +713,6 @@ extension Player {
         }
 
         self._avplayer.replaceCurrentItem(with: self._playerItem)
-        self._avplayer.rate = rate
 
         // update new playerItem settings
         if self.playbackLoops {
@@ -892,7 +899,7 @@ extension Player {
     // MARK: - AVPlayerObservers
 
     internal func addPlayerObservers() {
-        self._playerTimeObserver = self._avplayer.addPeriodicTimeObserver(forInterval: CMTimeMake(value: 1, timescale: 100), queue: DispatchQueue.main, using: { [weak self] timeInterval in
+        self._playerTimeObserver = self._avplayer.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 100), queue: DispatchQueue.main, using: { [weak self] timeInterval in
             guard let strongSelf = self else {
                 return
             }
@@ -949,25 +956,19 @@ public class PlayerView: UIView {
     // MARK: - overrides
 
     public override class var layerClass: AnyClass {
-        get {
-            return AVPlayerLayer.self
-        }
+        AVPlayerLayer.self
     }
 
     // MARK: - internal properties
 
     internal var playerLayer: AVPlayerLayer {
-        get {
-            return self.layer as! AVPlayerLayer
-        }
+        self.layer as! AVPlayerLayer
     }
 
     // MARK: - public properties
 
     public var player: AVPlayer? {
-        get {
-            return self.playerLayer.player
-        }
+        get { self.playerLayer.player }
         set {
             self.playerLayer.player = newValue
             self.playerLayer.isHidden = (self.playerLayer.player == nil)
@@ -981,24 +982,16 @@ public class PlayerView: UIView {
             }
             return nil
         }
-        set {
-            self.playerLayer.backgroundColor = newValue?.cgColor
-        }
+        set { self.playerLayer.backgroundColor = newValue?.cgColor }
     }
 
     public var playerFillMode: Player.FillMode {
-        get {
-            return self.playerLayer.videoGravity
-        }
-        set {
-            self.playerLayer.videoGravity = newValue
-        }
+        get { self.playerLayer.videoGravity }
+        set { self.playerLayer.videoGravity = newValue }
     }
 
     public var isReadyForDisplay: Bool {
-        get {
-            return self.playerLayer.isReadyForDisplay
-        }
+        self.playerLayer.isReadyForDisplay
     }
 
     // MARK: - object lifecycle
