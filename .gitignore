@@ -1,5 +1,9 @@
 ## macOS
 .DS_Store
+**/.DS_Store
+.AppleDouble
+.LSOverride
+._*
 
 ## Xcode
 
@@ -33,11 +37,25 @@ playground.xcworkspace
 
 # Swift Package Manager
 .build/
+.swiftpm/
+*.xcodeproj
+Package.resolved
 
 # CocoaPods
 Pods/
+*.xcworkspace
+!Project/*.xcworkspace
 
-# Carthage
-Carthage/Checkouts
-Carthage/Build
+# Dependency managers
+*.resolved
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation
+docs/
 
