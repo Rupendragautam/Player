@@ -4,8 +4,8 @@ import PackageDescription
 let package = Package(
     name: "Player",
     platforms: [
-        .iOS(.v12),
-        .tvOS(.v12)
+        .iOS(.v16),
+        .tvOS(.v16)
     ],
     products: [
         .library(

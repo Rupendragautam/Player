@@ -36,7 +36,7 @@ import os
 public let PlayerErrorDomain = "PlayerErrorDomain"
 
 /// Error types.
-public enum PlayerError: Error, CustomStringConvertible {
+public enum PlayerError: Error, CustomStringConvertible, Sendable {
     case failed
 
     public var description: String {
@@ -104,7 +104,7 @@ open class Player: UIViewController {
     public typealias FillMode = AVLayerVideoGravity
 
     /// Asset playback states.
-    public enum PlaybackState: Int, CustomStringConvertible {
+    public enum PlaybackState: Int, CustomStringConvertible, Sendable {
         case stopped = 0
         case playing
         case paused
@@ -125,7 +125,7 @@ open class Player: UIViewController {
     }
 
     /// Asset buffering states.
-    public enum BufferingState: Int, CustomStringConvertible {
+    public enum BufferingState: Int, CustomStringConvertible, Sendable {
         case unknown = 0
         case ready
         case delayed
@@ -231,6 +231,8 @@ open class Player: UIViewController {
             guard let asset = self._asset else {
                 return false
             }
+            // Using synchronous tracks API as this is a computed property
+            // For async alternative, use Task { await asset.load(.tracks) }
             return asset.tracks(withMediaType: .video).count != 0
         }
     }
@@ -318,16 +320,40 @@ open class Player: UIViewController {
     }
 
     /// The natural dimensions of the media.
+    /// Note: For iOS 16+, consider using the async `loadNaturalSize()` method for better performance.
     open var naturalSize: CGSize {
         get {
-            if let playerItem = self._playerItem,
-                let track = playerItem.asset.tracks(withMediaType: .video).first {
-
-                let size = track.naturalSize.applying(track.preferredTransform)
-                return CGSize(width: abs(size.width), height: abs(size.height))
-            } else {
-                return CGSize.zero
+            if let playerItem = self._playerItem {
+                // Synchronous access required for computed property
+                // swiftlint:disable:next legacy_avfoundation_api
+                if let track = playerItem.asset.tracks(withMediaType: .video).first {
+                    let size = track.naturalSize.applying(track.preferredTransform)
+                    return CGSize(width: abs(size.width), height: abs(size.height))
+                }
             }
+            return CGSize.zero
+        }
+    }
+
+    /// Load the natural dimensions of the media asynchronously (iOS 16+).
+    /// - Returns: The natural size of the video.
+    public func loadNaturalSize() async -> CGSize {
+        guard let playerItem = self._playerItem else {
+            return CGSize.zero
+        }
+
+        do {
+            let tracks = try await playerItem.asset.loadTracks(withMediaType: .video)
+            // Get the first video track
+            if let track = tracks.first {
+                let naturalSize = try await track.load(.naturalSize)
+                let preferredTransform = try await track.load(.preferredTransform)
+                let size = naturalSize.applying(preferredTransform)
+                return CGSize(width: abs(size.width), height: abs(size.height))
+            }
+            return CGSize.zero
+        } catch {
+            return CGSize.zero
         }
     }
 
@@ -349,7 +375,6 @@ open class Player: UIViewController {
     }
 
     /// Indicates a preferred upper limit on the resolution of the video to be downloaded.
-    @available(iOS 11.0, tvOS 11.0, *)
     open var preferredMaximumResolution: CGSize {
         get {
             return self._playerItem?.preferredMaximumResolution ?? CGSize.zero
@@ -558,6 +583,18 @@ extension Player {
         }
     }
 
+    /// Updates playback to the specified time (async/await).
+    ///
+    /// - Parameter time: The time to switch to move the playback.
+    /// - Returns: True if seek completed successfully.
+    public func seek(to time: CMTime) async -> Bool {
+        await withCheckedContinuation { continuation in
+            self.seek(to: time) { finished in
+                continuation.resume(returning: finished)
+            }
+        }
+    }
+
     /// Updates the playback time to the specified time bound.
     ///
     /// - Parameters:
@@ -568,6 +605,21 @@ extension Player {
     public func seekToTime(to time: CMTime, toleranceBefore: CMTime, toleranceAfter: CMTime, completionHandler: ((Bool) -> Swift.Void)? = nil) {
         if let playerItem = self._playerItem {
             return playerItem.seek(to: time, toleranceBefore: toleranceBefore, toleranceAfter: toleranceAfter, completionHandler: completionHandler)
+        }
+    }
+
+    /// Updates the playback time to the specified time bound (async/await).
+    ///
+    /// - Parameters:
+    ///   - time: The time to switch to move the playback.
+    ///   - toleranceBefore: The tolerance allowed before time.
+    ///   - toleranceAfter: The tolerance allowed after time.
+    /// - Returns: True if seek completed successfully.
+    public func seekToTime(to time: CMTime, toleranceBefore: CMTime, toleranceAfter: CMTime) async -> Bool {
+        await withCheckedContinuation { continuation in
+            self.seekToTime(to: time, toleranceBefore: toleranceBefore, toleranceAfter: toleranceAfter) { finished in
+                continuation.resume(returning: finished)
+            }
         }
     }
 
@@ -594,7 +646,7 @@ extension Player {
                 }
                 return
             }
-            
+
             switch result {
             case .succeeded:
                 let uiimage = UIImage(cgImage: image)
@@ -609,6 +661,58 @@ extension Player {
                     completionHandler?(nil, nil)
                 }
                 break
+            }
+        }
+    }
+
+    /// Captures a snapshot of the current Player asset with Result type.
+    ///
+    /// - Parameter completionHandler: Returns a Result containing either a UIImage or an Error.
+    public func takeSnapshot(completionHandler: @escaping (Result<UIImage, Error>) -> Void) {
+        guard let asset = self._playerItem?.asset else {
+            DispatchQueue.main.async {
+                completionHandler(.failure(PlayerError.failed))
+            }
+            return
+        }
+
+        let imageGenerator = AVAssetImageGenerator(asset: asset)
+        imageGenerator.appliesPreferredTrackTransform = true
+
+        let currentTime = self._playerItem?.currentTime() ?? CMTime.zero
+
+        imageGenerator.generateCGImagesAsynchronously(forTimes: [NSValue(time: currentTime)]) { (requestedTime, image, actualTime, result, error) in
+            guard let image = image else {
+                DispatchQueue.main.async {
+                    completionHandler(.failure(error ?? PlayerError.failed))
+                }
+                return
+            }
+
+            switch result {
+            case .succeeded:
+                let uiimage = UIImage(cgImage: image)
+                DispatchQueue.main.async {
+                    completionHandler(.success(uiimage))
+                }
+            case .failed, .cancelled:
+                fallthrough
+            @unknown default:
+                DispatchQueue.main.async {
+                    completionHandler(.failure(error ?? PlayerError.failed))
+                }
+            }
+        }
+    }
+
+    /// Captures a snapshot of the current Player asset (async/await).
+    ///
+    /// - Returns: A UIImage of the requested video frame.
+    /// - Throws: PlayerError if snapshot generation fails.
+    public func takeSnapshot() async throws -> UIImage {
+        try await withCheckedThrowingContinuation { continuation in
+            self.takeSnapshot { result in
+                continuation.resume(with: result)
             }
         }
     }
@@ -652,34 +756,38 @@ extension Player {
 
         self._asset = asset
 
-        self._asset?.loadValuesAsynchronously(forKeys: loadableKeys, completionHandler: { () -> Void in
+        // Use modern async/await API for iOS 16+
+        Task {
             guard let asset = self._asset else {
                 return
             }
-            
-            for key in loadableKeys {
-                var error: NSError? = nil
-                let status = asset.statusOfValue(forKey: key, error: &error)
-                if status == .failed {
+
+            do {
+                // Load asset properties using modern async API
+                _ = try await asset.load(.tracks)
+                let isPlayable = try await asset.load(.isPlayable)
+                _ = try await asset.load(.duration)
+
+                // Validate that tracks exist and asset is playable
+                if !isPlayable {
                     self.playbackState = .failed
-                    self.executeClosureOnMainQueueIfNecessary {
-                        self.playerDelegate?.player(self, didFailWithError: error)
+                    await MainActor.run {
+                        self.playerDelegate?.player(self, didFailWithError: PlayerError.failed)
                     }
                     return
                 }
-            }
 
-            if !asset.isPlayable {
-                self.playbackState = .failed
-                self.executeClosureOnMainQueueIfNecessary {
-                    self.playerDelegate?.player(self, didFailWithError: PlayerError.failed)
+                let playerItem = AVPlayerItem(asset: asset)
+                await MainActor.run {
+                    self.setupPlayerItem(playerItem)
                 }
-                return
+            } catch {
+                self.playbackState = .failed
+                await MainActor.run {
+                    self.playerDelegate?.player(self, didFailWithError: error)
+                }
             }
-
-            let playerItem = AVPlayerItem(asset:asset)
-            self.setupPlayerItem(playerItem)
-        })
+        }
     }
 
     fileprivate func setupPlayerItem(_ playerItem: AVPlayerItem?) {
@@ -695,9 +803,7 @@ extension Player {
         
         self._playerItem?.audioTimePitchAlgorithm = .spectral
         self._playerItem?.preferredPeakBitRate = self.preferredPeakBitRate
-        if #available(iOS 11.0, tvOS 11.0, *) {
-            self._playerItem?.preferredMaximumResolution = self._preferredMaximumResolution
-        }
+        self._playerItem?.preferredMaximumResolution = self._preferredMaximumResolution
 
         self._playerItem?.preferredForwardBufferDuration = self.bufferSizeInSeconds
 
@@ -906,20 +1012,18 @@ extension Player {
             strongSelf.playbackDelegate?.playerCurrentTimeDidChange(strongSelf)
         })
 
-        if #available(iOS 10.0, tvOS 10.0, *) {
-            self._playerObservers.append(self._avplayer.observe(\.timeControlStatus, options: [.new, .old]) { [weak self] (object, change) in
-                switch object.timeControlStatus {
-                case .paused:
-                    self?.playbackState = .paused
-                case .playing:
-                    self?.playbackState = .playing
-                case .waitingToPlayAtSpecifiedRate:
-                    fallthrough
-                @unknown default:
-                    break
-                }
-            })
-        }
+        self._playerObservers.append(self._avplayer.observe(\.timeControlStatus, options: [.new, .old]) { [weak self] (object, change) in
+            switch object.timeControlStatus {
+            case .paused:
+                self?.playbackState = .paused
+            case .playing:
+                self?.playbackState = .playing
+            case .waitingToPlayAtSpecifiedRate:
+                fallthrough
+            @unknown default:
+                break
+            }
+        })
 
     }
 
