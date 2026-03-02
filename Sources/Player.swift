@@ -409,6 +409,7 @@ open class Player: UIViewController {
 
     internal var _playerView: PlayerView = PlayerView(frame: .zero)
     internal var _seekTimeRequested: CMTime?
+    internal var _seekCompletionHandler: ((Bool) -> Swift.Void)?
     internal var _lastBufferTime: Double = 0
     internal var _preferredMaximumResolution: CGSize = .zero
 
@@ -580,6 +581,7 @@ extension Player {
             return playerItem.seek(to: time, completionHandler: completionHandler)
         } else {
             self._seekTimeRequested = time
+            self._seekCompletionHandler = completionHandler
         }
     }
 
@@ -605,6 +607,9 @@ extension Player {
     public func seekToTime(to time: CMTime, toleranceBefore: CMTime, toleranceAfter: CMTime, completionHandler: ((Bool) -> Swift.Void)? = nil) {
         if let playerItem = self._playerItem {
             return playerItem.seek(to: time, toleranceBefore: toleranceBefore, toleranceAfter: toleranceAfter, completionHandler: completionHandler)
+        } else {
+            self._seekTimeRequested = time
+            self._seekCompletionHandler = completionHandler
         }
     }
 
@@ -808,8 +813,10 @@ extension Player {
         self._playerItem?.preferredForwardBufferDuration = self.bufferSizeInSeconds
 
         if let seek = self._seekTimeRequested, self._playerItem != nil {
+            let completionHandler = self._seekCompletionHandler
             self._seekTimeRequested = nil
-            self.seek(to: seek)
+            self._seekCompletionHandler = nil
+            self.seek(to: seek, completionHandler: completionHandler)
         }
 
         if let updatedPlayerItem = self._playerItem {
