@@ -958,25 +958,31 @@ extension Player {
                 return
             }
 
-            let timeRanges = object.loadedTimeRanges
-            if let timeRange = timeRanges.first?.timeRangeValue {
-                let bufferedTime = CMTimeGetSeconds(CMTimeAdd(timeRange.start, timeRange.duration))
-                if strongSelf._lastBufferTime != bufferedTime {
-                    strongSelf._lastBufferTime = bufferedTime
-                    strongSelf.executeClosureOnMainQueueIfNecessary {
+            // KVO for `loadedTimeRanges` is delivered on an arbitrary background thread.
+            // Marshal all player-state access and playback control onto the main thread to
+            // avoid a data race against the non-thread-safe AVPlayer / player state, which
+            // caused intermittent crashes.
+            strongSelf.executeClosureOnMainQueueIfNecessary {
+                let timeRanges = object.loadedTimeRanges
+                if let timeRange = timeRanges.first?.timeRangeValue {
+                    let bufferedTime = CMTimeGetSeconds(CMTimeAdd(timeRange.start, timeRange.duration))
+                    // Guard against NaN/±inf from an invalid CMTime before using it.
+                    if bufferedTime.isFinite && strongSelf._lastBufferTime != bufferedTime {
+                        strongSelf._lastBufferTime = bufferedTime
                         strongSelf.playerDelegate?.playerBufferTimeDidChange(bufferedTime)
                     }
                 }
-            }
 
-            let currentTime = CMTimeGetSeconds(object.currentTime())
-            let passedTime = strongSelf._lastBufferTime <= 0 ? currentTime : (strongSelf._lastBufferTime - currentTime)
+                let currentTime = CMTimeGetSeconds(object.currentTime())
+                guard currentTime.isFinite else { return }
+                let passedTime = strongSelf._lastBufferTime <= 0 ? currentTime : (strongSelf._lastBufferTime - currentTime)
 
-            if (passedTime >= strongSelf.bufferSizeInSeconds ||
-                strongSelf._lastBufferTime == strongSelf.maximumDuration ||
-                timeRanges.first == nil) &&
-                strongSelf.playbackState == .playing {
-                strongSelf.play()
+                if (passedTime >= strongSelf.bufferSizeInSeconds ||
+                    strongSelf._lastBufferTime == strongSelf.maximumDuration ||
+                    timeRanges.first == nil) &&
+                    strongSelf.playbackState == .playing {
+                    strongSelf.play()
+                }
             }
         })
         
