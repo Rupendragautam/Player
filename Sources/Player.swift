@@ -352,6 +352,7 @@ open class Player: UIViewController {
         avplayer.actionAtItemEnd = .pause
         return avplayer
     }()
+    internal var _lastTimeControlStatus: AVPlayer.TimeControlStatus?
     internal var _playerItem: AVPlayerItem?
 
     internal var _playerObservers = [NSKeyValueObservation]()
@@ -484,6 +485,11 @@ extension Player {
     open func playFromBeginning() {
         self.playbackDelegate?.playerPlaybackWillStartFromBeginning(self)
         self._avplayer.seek(to: CMTime.zero)
+        self.playFromCurrentTime()
+    }
+    open func playFromGivenTime(time :CMTime) {
+        self.playbackDelegate?.playerPlaybackWillStartFromBeginning(self)
+        self._avplayer.seek(to: time)
         self.playFromCurrentTime()
     }
 
@@ -749,9 +755,9 @@ extension Player {
     }
 
     @objc internal func handleApplicationDidBecomeActive(_ aNotification: Notification) {
-        if self.playbackState == .paused && self.playbackResumesWhenBecameActive {
-            self.play()
-        }
+//        if self.playbackState == .paused && self.playbackResumesWhenBecameActive {
+//            self.play()
+//        }
     }
 
     @objc internal func handleApplicationDidEnterBackground(_ aNotification: Notification) {
@@ -761,9 +767,9 @@ extension Player {
     }
 
     @objc internal func handleApplicationWillEnterForeground(_ aNoticiation: Notification) {
-        if self.playbackState != .playing && self.playbackResumesWhenEnteringForeground {
-            self.play()
-        }
+//        if self.playbackState != .playing && self.playbackResumesWhenEnteringForeground {
+//            self.play()
+//        }
     }
 
 }
@@ -883,11 +889,15 @@ extension Player {
 
         if #available(iOS 10.0, tvOS 10.0, *) {
             self._playerObservers.append(self._avplayer.observe(\.timeControlStatus, options: [.new, .old]) { [weak self] (object, change) in
-                switch object.timeControlStatus {
+                guard let self = self else { return }
+                let newStatus = object.timeControlStatus
+                guard newStatus != self._lastTimeControlStatus else { return }
+                self._lastTimeControlStatus = newStatus
+                switch newStatus {
                 case .paused:
-                    self?.playbackState = .paused
+                    self.playbackState = .paused
                 case .playing:
-                    self?.playbackState = .playing
+                    self.playbackState = .playing
                 case .waitingToPlayAtSpecifiedRate:
                     fallthrough
                 @unknown default:
@@ -906,6 +916,7 @@ extension Player {
             observer.invalidate()
         }
         self._playerObservers.removeAll()
+        self._lastTimeControlStatus = nil
     }
 
 }
@@ -944,7 +955,7 @@ public class PlayerView: UIView {
         }
     }
 
-    internal var player: AVPlayer? {
+    public var player: AVPlayer? {
         get {
             return self.playerLayer.player
         }
